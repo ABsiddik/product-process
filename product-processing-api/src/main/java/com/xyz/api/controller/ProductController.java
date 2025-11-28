@@ -2,12 +2,11 @@ package com.xyz.api.controller;
 
 import com.xyz.api.dto.ProductListRequest;
 import com.xyz.api.service.ProductProgressService;
+import com.xyz.api.service.ProductService;
 import lombok.AllArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
 
@@ -17,12 +16,13 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductProgressService progressService;
+    private final ProductService productService;
 
-    @PostMapping("/products")
-    public ResponseEntity<?> processProducts(@RequestBody ProductListRequest listRequest) {
+    @PostMapping(value = "/products", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<?> processProducts(@ModelAttribute ProductListRequest listRequest) {
         String batchId = UUID.randomUUID().toString();
-        System.out.println(batchId);
         progressService.start(batchId, listRequest.getProducts().size());
-        return ResponseEntity.ok(listRequest);
+        productService.processProducts(listRequest, batchId);
+        return ResponseEntity.ok("Bulk uploading");
     }
 }
