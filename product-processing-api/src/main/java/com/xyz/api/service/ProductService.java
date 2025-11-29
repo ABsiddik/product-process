@@ -12,6 +12,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -97,5 +99,23 @@ public class ProductService {
         product.setJsonPath(jsonPath);
 
         productRepository.save(product);
+    }
+
+    public List<ProductResponse> findProducts(Pageable pageable) {
+        try {
+            List<ProductResponse> list = new ArrayList<>();
+            ObjectMapper objectMapper = new ObjectMapper();
+            Page<Product> products = productRepository.findAll(pageable);
+            for (Product product : products.toList()) {
+                File json = new File(product.getJsonPath());
+                ProductResponse res = objectMapper.readValue(json, ProductResponse.class);
+                list.add(res);
+            }
+            return list;
+        } catch (Exception e) {
+            log.error("Error while retrieving products - {}", e.getMessage());
+        }
+
+        return List.of();
     }
 }
