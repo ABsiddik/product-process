@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { uploadBulkProducts } from "../../services/productService.js";
+import { useState, useRef, useEffect } from "react";
+import { uploadBulkProducts, getProgressData } from "../../services/productService.js";
 
 type UploadForm = {
     sku: string;
@@ -15,6 +15,14 @@ export default function ProductUploader() {
     const [products, setProducts] = useState<UploadForm[]>([
         { sku:"", name: "", price: 0, description: "", photos: [] }
     ]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [totalCompleted, setTotalCompleted] = useState(0);
+    const [completedPercent, setCompletedPercent] = useState(0);
+    const [message, setMessage] = useState("Progess");
+    const [processing, setProcessing] = useState(false);
+    const [hasError, setHasError] = useState(false);
+
+    const intervalRef = useRef<number | null>(null);
 
     const handleInputChange = <K extends keyof UploadForm>(index: number, field: K, value: UploadForm[K]) => {
         const updated = [...products];
@@ -24,8 +32,7 @@ export default function ProductUploader() {
     };
 
     const handleAddProduct = () => {
-        setProducts([...products, { sku: "", name: "", price: 0, description: "", photos: [] }
-        ]);
+        setProducts([...products, { sku: "", name: "", price: 0, description: "", photos: [] }]);
     };
 
     const submitProducts = async () => {
@@ -44,19 +51,67 @@ export default function ProductUploader() {
             formData.append(`products[${index}].description`, p.description);
 
             p.photos.forEach((file) => {
-            formData.append(`products[${index}].photos`, file);
+                formData.append(`products[${index}].photos`, file);
             });
         });
 
         try {
             const response = await uploadBulkProducts(formData);
-            console.log("response:", response);
-            console.log("Uploaded:", response.data);
+            
+            if (response.data) {
+                const data = response.data;
+                setMessage(data.message);
+                setTotalProducts(data.total);
+                setProcessing(true);
+                startProgressPolling(data.batchId);
+            }
         } catch (e) {
+            setProcessing(false);
             console.error("Upload failed", e);
         }
         
     }
+
+    const startProgressPolling = (batchId: any) => {
+        
+        intervalRef.current = window.setInterval(async () => {
+            try {
+                const response = await getProgressData(batchId);
+                
+                const data = response.data;
+                
+                setMessage(data.message);
+                const completed = data.processed;
+                setTotalCompleted(completed);
+
+                if (completed >= totalProducts) {
+                    if (intervalRef.current !== null) {
+                        clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                    }
+                    setProcessing(false);
+                    setProducts([]);
+                }
+
+            } catch (error: any) {
+                const data = error?.response?.data;
+                if (data) {
+                    setMessage(data.message);
+                    setHasError(true);
+                    setProcessing(false);
+                }
+                console.error("Error on progress - ", data);
+            }
+        }, 1000);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (intervalRef.current) clearInterval(intervalRef.current);
+        };
+    }, []);
+
+    const percentage = (totalCompleted / totalProducts) * 100;
 
     return (
         <div className="p-6 max-w-7xl mx-auto">
@@ -115,15 +170,34 @@ export default function ProductUploader() {
             </div>
         ))}
 
-            <button onClick={handleAddProduct}
-                className="bg-gray-800 text-white px-4 py-2 rounded">
-                + Add Product
-            </button>
+            {!processing &&
+                <div className="mt-5">
+                    <button onClick={handleAddProduct}
+                        className="bg-gray-800 text-white px-4 py-2 rounded">
+                        + Add Product
+                    </button>
 
-            <button onClick={submitProducts}
-                className="bg-blue-600 text-white px-4 py-2 rounded ml-4">
-                Submit All
-            </button>
+                    <button onClick={submitProducts}
+                        className="bg-blue-600 text-white px-4 py-2 rounded ml-4">
+                        Submit All
+                    </button>
+                    <a href="/products" className="bg-gray-600 text-white px-4 py-2 rounded ml-4">See Products</a>
+                </div>
+            }
+
+            {processing &&
+                <div className="space-y-2 w-full mt-5">
+                    <div className="text-sm font-medium text-gray-700">
+                        <span>{message}</span><span className="ml-2">{totalCompleted} / {totalProducts}</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                    <div
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-500"
+                        style={{ width: `${percentage}%` }}
+                    ></div>
+                    </div>
+                </div>
+            }
         </div>
     );
 }
