@@ -29,6 +29,13 @@ export default function ProductUploader() {
     };
 
     const submitProducts = async () => {
+        const validProducts = products.filter(p => p.sku !== "" && p.name !== "");
+
+        if (validProducts.length === 0) {
+            console.log("No valid products to submit.");
+            return;
+        }
+
         const formData = new FormData();
         products.forEach((p, index) => {
             formData.append(`products[${index}].sku`, p.sku);
@@ -88,7 +95,7 @@ export default function ProductUploader() {
                 }
             />
 
-            <textarea
+            <input
                 placeholder="Description"
                 className="border p-2 w-full mb-2 flex-auto"
                 onChange={(e) =>
