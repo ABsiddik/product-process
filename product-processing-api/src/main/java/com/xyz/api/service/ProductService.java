@@ -35,62 +35,24 @@ public class ProductService {
     @Value("${app.data.storage}")
     private String dataDir;
 
-    public void processProducts(ProductListRequest request, String batchId) {
-        try {
-            ObjectMapper objectMapper = new ObjectMapper();
-            Path uploadPath = Paths.get(dataDir);
-            Files.createDirectories(uploadPath);
-
-            List<ProductRequest> products = request.getProducts();
-            for (ProductRequest product : products) {
-                if (productRepository.existsBySku(product.getSku()))
-                    continue;
-
-                exportProductAsJson(product, uploadPath, objectMapper);
-            }
-        } catch (Exception ex) {
-            log.error("error while processing - {}", ex.getMessage());
-        }
+    public boolean isExistBySKU(String sku) {
+        return productRepository.existsBySku(sku);
     }
 
-    private void exportProductAsJson(ProductRequest req, Path uploadPath, ObjectMapper objectMapper) throws Exception {
-        String sku = req.getSku();
-        Path productDir = uploadPath.resolve(sku);
+    public void exportAsJson(ProductResponse product, ObjectMapper objectMapper) throws Exception {
+        Path uploadPath = Paths.get(dataDir);
+        String sku = product.getSku();
+        Path productPath = uploadPath.resolve(sku).resolve(sku + ".json");
 
-        Path productPath = productDir.resolve(sku + ".json");
         File productFile = productPath.toFile();
         if (!productFile.exists()) {
             productFile.getParentFile().mkdirs();
             productFile.createNewFile();
         }
 
-        List<String> imagesPaths = uploadFiles(req.getPhotos(), productDir);
-
-        ProductResponse product = new ProductResponse();
-        BeanUtils.copyProperties(req, product);
-
-        product.setImagesPaths(imagesPaths);
-
         objectMapper.writeValue(productFile, product);
 
         saveProduct(sku, productFile.getPath());
-    }
-
-    private List<String> uploadFiles(List<MultipartFile> images, Path dir) throws IOException {
-        if (images == null || images.isEmpty())
-            return List.of();
-
-        List<String> paths = new ArrayList<>();
-        for (MultipartFile file : images) {
-            if (!file.isEmpty()) {
-                String originalFilename = file.getOriginalFilename();
-                Path filePath = dir.resolve(originalFilename);
-                file.transferTo(filePath);
-                paths.add(filePath.toString());
-            }
-        }
-
-        return paths;
     }
 
     private void saveProduct(String sku, String jsonPath) {

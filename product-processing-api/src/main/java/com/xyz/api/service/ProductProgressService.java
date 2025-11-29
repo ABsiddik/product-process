@@ -1,5 +1,6 @@
 package com.xyz.api.service;
 
+import com.xyz.api.dto.ProgressResponse;
 import com.xyz.api.enums.ProgressStateEnum;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -52,8 +53,16 @@ public class ProductProgressService {
         }
     }
 
-    public Map<Object, Object> status(String batchId) {
-        return redisTemplate.opsForHash().entries(PREFIX + batchId);
+    public ProgressResponse status(String batchId) {
+        Map<Object, Object> entries = redisTemplate.opsForHash().entries(PREFIX + batchId);
+        if (entries.isEmpty()) {
+            return null;
+        }
+        long total = entries.get(TOTAL_KEY) != null ? Long.parseLong(entries.get(TOTAL_KEY).toString()) : 0;
+        long processed = entries.get(PROCESSED_KEY) != null ? Long.parseLong(entries.get(PROCESSED_KEY).toString()) : 0;
+        String msg = total == processed ? "Products processing is completed" : "Products processing is still running";
+
+        return new ProgressResponse(batchId, entries.get(STATE_KEY).toString(), total, processed, msg);
     }
 
     public void failed(String batchId, String error) {
