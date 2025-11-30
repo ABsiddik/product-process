@@ -14,6 +14,19 @@
 
 **Database:** MySql
 
+## Docker Compose
+*If Docker is available on local PC, go inside project and run following command*
+```bash
+  docker compose up -d
+```
+#### Configured images
+- mysql:3306
+- redis:6379
+- zookeeper:2181
+- kafka:9092
+- backend:8080 *API*
+- frontend:3000
+
 ## Authors
 
 - [@ABsiddik](https://www.github.com/ABsiddik)
