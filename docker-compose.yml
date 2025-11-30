@@ -13,6 +13,11 @@ services:
     volumes:
       - mysql_data:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 3s
+      timeout: 5s
+      retries: 5
 
   redis:
     image: redis:7
@@ -45,35 +50,66 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: "zookeeper:2181"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
-  app:
+  backend:
     build:
       context: ./product-processing-api
       dockerfile: Dockerfile
       args:
         SPRING_PROFILE: prod
     depends_on:
-      - mysql
-      - redis
+      redis:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+
     environment:
       SPRING_PROFILES_ACTIVE: prod
       # DB
-      spring.datasource.url: jdbc:mysql://mysql:3306/product-db
+      spring.datasource.url: jdbc:mysql://mysql:3306/product-db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       spring.datasource.username: root
       spring.datasource.password: root
       # Kafka
-#      spring.kafka.bootstrap-servers: kafka:9092
+      spring.kafka.bootstrap-servers: kafka:9092
       # Redis
       redis.host: redis
       redis.port: 6379
       redis.database: 1
+
+      APP_STORAGE_PATH: /app/data
+    volumes:
+      - /home/${USER}/product-data:/app/data
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     ports:
       - "8080:8080"
+    networks:
+      - product-process-network
+
+  frontend:
+    build:
+      context: ./product-app
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_BASE: http://localhost:8080
+        NEXT_PUBLIC_RESOURCE_PATH: /app/data
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+    environment:
+      NEXT_PUBLIC_API_BASE: http://localhost:8080
+      NEXT_PUBLIC_RESOURCE_PATH: /app/data
     networks:
       - product-process-network
 

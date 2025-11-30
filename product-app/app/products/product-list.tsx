@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getAllProducts } from "../services/productService.js";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+const RESOURCE_PATH = process.env.NEXT_PUBLIC_RESOURCE_PATH;
 
 export default function Products() {
     const [products, setProducts] = useState([]);
@@ -47,7 +48,7 @@ export default function Products() {
                         </div>
                         <div className="flex-auto flex gap-2">
                             {product.imagesPaths.map((path: any, k: number) => (
-                                <img key={`${index}${k}`} src={path.replace('/home/user/product-data', product_images)} alt="sku" style={{width: '80px', height: '80px'}} className="rounded"/>
+                                <img key={`${index}${k}`} src={path.replace(RESOURCE_PATH, product_images)} alt="sku" style={{width: '80px', height: '80px'}} className="rounded"/>
                             ))}
                         </div>
                     </div>
